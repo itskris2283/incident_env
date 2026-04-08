@@ -1,0 +1,84 @@
+name: IncidentCommanderEnv
+version: "1.0.0"
+description: |
+  IT infrastructure incident response simulation.
+  Agent acts as on-call incident commander diagnosing and resolving production incidents.
+
+author: Hackathon Team
+license: MIT
+
+environment:
+  class: env.IncidentCommanderEnv
+  methods: [reset, step, state, grade]
+
+  observation_space:
+    current_time: int
+    services: Dict[str, ServiceStatus]
+    alerts: List[Alert]
+    last_query_result: Optional[QueryResult]
+    action_history: List[str]
+    declared_root_causes: List[str]
+    incident_resolved: bool
+
+  action_space:
+    action_type:
+      enum:
+        [
+          query_logs,
+          query_metrics,
+          check_deploys,
+          restart_service,
+          rollback_service,
+          scale_service,
+          declare_root_cause,
+          resolve_incident,
+        ]
+    target_service:
+      enum: [frontend, api, auth, db, redis]
+
+  reward:
+    dense: true
+    range: [-0.15, 0.25]
+    evidence_based: true
+    diminishing_returns: true
+
+tasks:
+  - id: easy_single_failure
+    name: Database Connection Exhaustion
+    difficulty: easy
+    root_causes: [db]
+    time_limit: 25
+    optimal_actions: 6
+
+  - id: medium_cascade
+    name: Redis Memory Cascade
+    difficulty: medium
+    root_causes: [redis]
+    time_limit: 35
+    optimal_actions: 8
+
+  - id: hard_multi_root
+    name: "Multi-Root: DB + Redis"
+    difficulty: hard
+    root_causes: [db, redis]
+    time_limit: 50
+    optimal_actions: 12
+    features:
+      - delayed_failures
+      - misleading_signals
+      - multiple_root_causes
+
+grading:
+  deterministic: true
+  score_range: [0.0, 1.0]
+  components:
+    root_cause_identification: 0.25
+    remediation_correctness: 0.25
+    investigation_quality: 0.20
+    efficiency: 0.15
+    penalty_avoidance: 0.15
+
+deployment:
+  platform: huggingface_spaces
+  sdk: docker
+  port: 7860
