@@ -82,8 +82,9 @@ def get_actions():
 
 
 @app.post("/reset")
-def reset(request: ResetRequest):
+def reset(request: Optional[ResetRequest] = None):
     """Reset environment."""
+    request = request or ResetRequest()
     try:
         env = get_env(request.session_id)
         obs = env.reset(request.task_id)
@@ -111,8 +112,9 @@ def step(request: StepRequest):
 
 
 @app.post("/state")
-def state(request: SessionRequest):
+def state(request: Optional[SessionRequest] = None):
     """Get current state."""
+    request = request or SessionRequest()
     env = get_env(request.session_id)
     s = env.state()
     if "error" in s:
@@ -121,8 +123,9 @@ def state(request: SessionRequest):
 
 
 @app.post("/grade")
-def grade(request: SessionRequest):
+def grade(request: Optional[SessionRequest] = None):
     """Grade trajectory."""
+    request = request or SessionRequest()
     env = get_env(request.session_id)
     g = env.grade()
     if "error" in g:
