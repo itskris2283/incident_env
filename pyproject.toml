@@ -13,6 +13,7 @@ authors = [
   { name = "Hackathon Team" }
 ]
 dependencies = [
+  "openenv-core>=0.2.0",
   "fastapi>=0.104.0",
   "pydantic>=2.0.0",
   "uvicorn>=0.24.0",
@@ -20,6 +21,9 @@ dependencies = [
   "httpx>=0.25.0",
   "python-dotenv>=1.0.0"
 ]
+
+[project.scripts]
+server = "server.app:main"
 
 [tool.openenv]
 spec_file = "openenv.yaml"
