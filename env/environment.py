@@ -95,7 +95,29 @@ class IncidentCommanderEnv:
             fixed_root_causes=self.simulator.fixed_root_causes,
             triggered_delayed_failures=self.simulator.triggered_delayed_failures
         )
-        return result.model_dump()
+        grade = result.model_dump()
+
+        # Defensive clamp at API boundary for strict-open score validators.
+        def _strict_open(value: float) -> float:
+            eps = 1e-4
+            if value <= 0.0:
+                return eps
+            if value >= 1.0:
+                return 1.0 - eps
+            return value
+
+        for key in [
+            "score",
+            "root_cause_score",
+            "remediation_score",
+            "investigation_score",
+            "efficiency_score",
+            "penalty_score",
+        ]:
+            if key in grade:
+                grade[key] = _strict_open(float(grade[key]))
+
+        return grade
     
     def get_tasks(self) -> list:
         """List available tasks."""

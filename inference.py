@@ -138,6 +138,14 @@ def parse_action(response: str) -> Optional[Dict[str, Any]]:
 
 def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max_steps: int = 20):
     """Run a single episode."""
+    def strict_open(value: float) -> float:
+        eps = 1e-4
+        if value <= 0.0:
+            return eps
+        if value >= 1.0:
+            return 1.0 - eps
+        return value
+
     # [START] output
     print(f"[START] {task_id}")
     
@@ -187,6 +195,7 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
     
     # Grade and [END] output
     grade = env.grade()
+    grade["score"] = strict_open(float(grade["score"]))
     print(f"[END] {grade['score']:.4f}")
     
     return grade
