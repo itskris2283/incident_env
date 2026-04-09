@@ -117,6 +117,16 @@ class IncidentCommanderEnv:
             if key in grade:
                 grade[key] = _strict_open(float(grade[key]))
 
+        # Return only normalized score fields to avoid ambiguous parsing.
+        grade = {
+            "score": grade.get("score", 0.05),
+            "root_cause_score": grade.get("root_cause_score", 0.05),
+            "remediation_score": grade.get("remediation_score", 0.05),
+            "investigation_score": grade.get("investigation_score", 0.05),
+            "efficiency_score": grade.get("efficiency_score", 0.05),
+            "penalty_score": grade.get("penalty_score", 0.05),
+        }
+
         return grade
     
     def get_tasks(self) -> list:
