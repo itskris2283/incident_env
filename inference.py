@@ -34,23 +34,45 @@ def get_env_var(name: str, required: bool = True) -> Optional[str]:
     return val
 
 
-def create_client(enable_online: bool = False) -> Optional[Any]:
-    """Create HuggingFace inference client, or return None for offline fallback mode."""
+def create_client(force_offline: bool = False) -> Optional[Any]:
+    """Create an OpenAI-compatible client.
+
+    Priority:
+    1) Validator-injected LiteLLM proxy via API_BASE_URL + API_KEY
+    2) Local HF router via HF_TOKEN
+    3) Offline fallback (no client)
+    """
     from openai import OpenAI
 
-    if not enable_online:
-        print("Online LLM disabled, running in offline fallback mode", file=sys.stderr)
+    if force_offline:
+        print("Offline mode enabled, skipping online LLM calls", file=sys.stderr)
         return None
-    
-    api_base = get_env_var("API_BASE_URL", required=False) or "https://router.huggingface.co/v1"
-    token = get_env_var("HF_TOKEN", required=False)
 
+    api_base = os.environ.get("API_BASE_URL")
+    api_key = os.environ.get("API_KEY")
+
+    # Hackathon validator path: must use injected proxy credentials.
+    if api_base or api_key:
+        if not (api_base and api_key):
+            print("API_BASE_URL/API_KEY incomplete; running in offline fallback mode", file=sys.stderr)
+            return None
+        try:
+            print("Using injected API_BASE_URL/API_KEY proxy", file=sys.stderr)
+            return OpenAI(base_url=api_base, api_key=api_key, max_retries=0, timeout=10.0)
+        except Exception as e:
+            print(f"Proxy client init error: {e}; running in offline fallback mode", file=sys.stderr)
+            return None
+
+    # Local development path.
+    token = get_env_var("HF_TOKEN", required=False)
     if not token:
-        print("HF_TOKEN not set, running in offline fallback mode", file=sys.stderr)
+        print("HF_TOKEN not set; running in offline fallback mode", file=sys.stderr)
         return None
 
     try:
-        return OpenAI(base_url=api_base, api_key=token, max_retries=0, timeout=10.0)
+        hf_base = "https://router.huggingface.co/v1"
+        print("Using local HF router credentials", file=sys.stderr)
+        return OpenAI(base_url=hf_base, api_key=token, max_retries=0, timeout=10.0)
     except Exception as e:
         print(f"Client init error: {e}; running in offline fallback mode", file=sys.stderr)
         return None
@@ -233,8 +255,8 @@ def main():
                        help="Run a single task. If omitted, runs all tasks.")
     parser.add_argument("--model", default=None)
     parser.add_argument("--max-steps", type=int, default=20)
-    parser.add_argument("--online", action="store_true",
-                       help="Enable online LLM calls via HF router. Default is offline deterministic mode.")
+    parser.add_argument("--offline", action="store_true",
+                       help="Disable online LLM calls and use deterministic fallback actions only.")
     parser.add_argument("--all-tasks", action="store_true",
                        help="Run all tasks.")
     args = parser.parse_args()
@@ -242,7 +264,7 @@ def main():
     # Get model from env or args
     model = args.model or get_env_var("MODEL_NAME", required=False) or "Qwen/Qwen2.5-7B-Instruct"
     
-    client = create_client(enable_online=args.online)
+    client = create_client(force_offline=args.offline)
     env = IncidentCommanderEnv(seed=42)
     
     print(f"Using model: {model}", file=sys.stderr)
