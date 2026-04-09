@@ -34,14 +34,22 @@ def get_env_var(name: str, required: bool = True) -> Optional[str]:
     return val
 
 
-def create_client():
-    """Create HuggingFace inference client."""
+def create_client() -> Optional[Any]:
+    """Create HuggingFace inference client, or return None for offline fallback mode."""
     from openai import OpenAI
     
     api_base = get_env_var("API_BASE_URL", required=False) or "https://router.huggingface.co/v1"
-    token = get_env_var("HF_TOKEN", required=True)
-    
-    return OpenAI(base_url=api_base, api_key=token)
+    token = get_env_var("HF_TOKEN", required=False)
+
+    if not token:
+        print("HF_TOKEN not set, running in offline fallback mode", file=sys.stderr)
+        return None
+
+    try:
+        return OpenAI(base_url=api_base, api_key=token)
+    except Exception as e:
+        print(f"Client init error: {e}; running in offline fallback mode", file=sys.stderr)
+        return None
 
 
 def get_system_prompt() -> str:
@@ -156,22 +164,24 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
     while not done and step < max_steps:
         step += 1
         obs_text = format_observation(obs)
+        action = None
         
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": get_system_prompt()},
-                    {"role": "user", "content": obs_text}
-                ],
-                max_tokens=100,
-                temperature=0.1
-            )
-            llm_output = response.choices[0].message.content
-            action = parse_action(llm_output)
-        except Exception as e:
-            print(f"LLM error: {e}", file=sys.stderr)
-            action = None
+        if client is not None:
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": get_system_prompt()},
+                        {"role": "user", "content": obs_text}
+                    ],
+                    max_tokens=100,
+                    temperature=0.1
+                )
+                llm_output = response.choices[0].message.content
+                action = parse_action(llm_output)
+            except Exception as e:
+                print(f"LLM error: {e}", file=sys.stderr)
+                action = None
         
         if action is None:
             # Fallback action
