@@ -99,12 +99,12 @@ class StepResult(BaseModel):
 
 class GradeResult(BaseModel):
     """Final grading result."""
-    score: float = Field(ge=0.0, le=1.0)
-    root_cause_score: float = Field(ge=0.0, le=1.0)
-    remediation_score: float = Field(ge=0.0, le=1.0)
-    investigation_score: float = Field(ge=0.0, le=1.0)
-    efficiency_score: float = Field(ge=0.0, le=1.0)
-    penalty_score: float = Field(ge=0.0, le=1.0)
+    score: float = Field(gt=0.0, lt=1.0)
+    root_cause_score: float = Field(gt=0.0, lt=1.0)
+    remediation_score: float = Field(gt=0.0, lt=1.0)
+    investigation_score: float = Field(gt=0.0, lt=1.0)
+    efficiency_score: float = Field(gt=0.0, lt=1.0)
+    penalty_score: float = Field(gt=0.0, lt=1.0)
     breakdown: Dict[str, Any]
 
 
