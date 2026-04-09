@@ -197,11 +197,13 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", default="easy_single_failure",
-                       choices=["easy_single_failure", "medium_cascade", "hard_multi_root"])
+    parser.add_argument("--task", default=None,
+                       choices=["easy_single_failure", "medium_cascade", "hard_multi_root"],
+                       help="Run a single task. If omitted, runs all tasks.")
     parser.add_argument("--model", default=None)
     parser.add_argument("--max-steps", type=int, default=20)
-    parser.add_argument("--all-tasks", action="store_true")
+    parser.add_argument("--all-tasks", action="store_true",
+                       help="Run all tasks.")
     args = parser.parse_args()
     
     # Get model from env or args
@@ -212,7 +214,8 @@ def main():
     
     print(f"Using model: {model}", file=sys.stderr)
     
-    tasks = ["easy_single_failure", "medium_cascade", "hard_multi_root"] if args.all_tasks else [args.task]
+    all_tasks = ["easy_single_failure", "medium_cascade", "hard_multi_root"]
+    tasks = [args.task] if args.task and not args.all_tasks else all_tasks
     
     results = []
     for task in tasks:

@@ -62,8 +62,12 @@ class IncidentGrader:
             0.15 * pen_score
         )
         
-        # Hard cap to [0, 1]
-        final = max(0.0, min(1.0, final))
+        # Clamp to strict open interval (0, 1) for submission validators.
+        eps = 1e-4
+        if final <= 0.0:
+            final = eps
+        elif final >= 1.0:
+            final = 1.0 - eps
         
         return GradeResult(
             score=round(final, 4),
