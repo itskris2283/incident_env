@@ -7,6 +7,16 @@ from typing import Dict, List, Set
 from .models import GradeResult, Scenario
 
 
+def strict_score(value: float) -> float:
+    """Force score into strict open interval (0,1)."""
+    eps = 1e-4
+    if value <= 0.0:
+        return eps
+    if value >= 1.0:
+        return 1.0 - eps
+    return value
+
+
 class IncidentGrader:
     """Deterministic grader for incident response trajectories."""
     
@@ -25,57 +35,41 @@ class IncidentGrader:
         fixed_root_causes: Set[str],
         triggered_delayed_failures: Set[str]
     ) -> GradeResult:
-        """
-        Compute final grade.
-        
-        Components:
-        - Root cause accuracy (25%)
-        - Remediation correctness (25%)
-        - Investigation quality (20%)
-        - Efficiency (15%)
-        - Penalty avoidance (15%)
-        """
-        
-        # Determine which root causes were actually "active" during the episode
+        """Compute final grade from trajectory signals."""
+        # Keep parameter for API compatibility.
+        _ = remediation_actions
+
+        # Determine which root causes were actually active in this episode.
         active_root_causes = []
         for rc in self.scenario.root_causes:
             if rc in self.scenario.delayed_failures:
-                # Only count if it triggered
                 if rc in triggered_delayed_failures:
                     active_root_causes.append(rc)
             else:
-                # Immediate failure - always active
                 active_root_causes.append(rc)
-        
+
         rc_score = self._score_root_causes(declared_root_causes, active_root_causes)
         rem_score = self._score_remediation(fixed_root_causes, active_root_causes)
         inv_score = self._score_investigation(investigation, active_root_causes)
         eff_score = self._score_efficiency(len(action_history), final_time, incident_resolved)
         pen_score = self._score_penalties(wrong_actions, len(action_history))
-        
-        # Weighted final score
+
+        # Weighted final score.
         final = (
-            0.25 * rc_score +
-            0.25 * rem_score +
-            0.20 * inv_score +
-            0.15 * eff_score +
-            0.15 * pen_score
+            0.25 * rc_score
+            + 0.25 * rem_score
+            + 0.20 * inv_score
+            + 0.15 * eff_score
+            + 0.15 * pen_score
         )
-        
-        # Clamp to strict open interval (0, 1) for submission validators.
-        eps = 1e-4
-        if final <= 0.0:
-            final = eps
-        elif final >= 1.0:
-            final = 1.0 - eps
-        
+
         return GradeResult(
-            score=round(final, 4),
-            root_cause_score=round(rc_score, 4),
-            remediation_score=round(rem_score, 4),
-            investigation_score=round(inv_score, 4),
-            efficiency_score=round(eff_score, 4),
-            penalty_score=round(pen_score, 4),
+            score=strict_score(round(final, 4)),
+            root_cause_score=strict_score(round(rc_score, 4)),
+            remediation_score=strict_score(round(rem_score, 4)),
+            investigation_score=strict_score(round(inv_score, 4)),
+            efficiency_score=strict_score(round(eff_score, 4)),
+            penalty_score=strict_score(round(pen_score, 4)),
             breakdown={
                 "declared_root_causes": declared_root_causes,
                 "expected_root_causes": self.scenario.root_causes,
@@ -87,7 +81,7 @@ class IncidentGrader:
                 "time_limit": self.scenario.time_limit,
                 "wrong_actions": wrong_actions,
                 "incident_resolved": incident_resolved,
-            }
+            },
         )
     
     def _score_root_causes(self, declared: List[str], active: List[str]) -> float:
