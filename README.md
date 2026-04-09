@@ -111,7 +111,7 @@ Grading in `env/grader.py` is deterministic and weighted:
 - Efficiency: 15%
 - Penalty avoidance: 15%
 
-Final score is clamped to strict open interval `(0, 1)` (implemented as `[0.0001, 0.9999]`).
+Final score is clamped to strict open interval `(0, 1)` (implemented as `[0.01, 0.99]`).
 
 ## Local Setup
 

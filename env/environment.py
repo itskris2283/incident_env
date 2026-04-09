@@ -99,7 +99,7 @@ class IncidentCommanderEnv:
 
         # Defensive clamp at API boundary for strict-open score validators.
         def _strict_open(value: float) -> float:
-            eps = 1e-4
+            eps = 1e-2
             if value <= 0.0:
                 return eps
             if value >= 1.0:

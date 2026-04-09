@@ -9,7 +9,7 @@ from .models import GradeResult, Scenario
 
 def strict_score(value: float) -> float:
     """Force score into strict open interval (0,1)."""
-    eps = 1e-4
+    eps = 1e-2
     if value <= 0.0:
         return eps
     if value >= 1.0:

@@ -173,7 +173,7 @@ def parse_action(response: str) -> Optional[Dict[str, Any]]:
 def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max_steps: int = 20):
     """Run a single episode."""
     def strict_open(value: float) -> float:
-        eps = 1e-4
+        eps = 1e-2
         if value <= 0.0:
             return eps
         if value >= 1.0:
@@ -183,7 +183,7 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
     # [START] output
     print(f"[START] {task_id}", flush=True)
 
-    score = 1e-4
+    score = 0.05
 
     try:
         obs = env.reset(task_id)
@@ -230,10 +230,9 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
 
             # [STEP] output
             action_str = f"{action.get('action_type')}({action.get('target_service', '')})"
-            progress = strict_open(step / max_steps) if max_steps > 0 else 1e-4
             step_reward = strict_open(float(reward["value"]))
             step_cumulative = strict_open(float(reward["cumulative"]))
-            print(f"[STEP] {progress:.4f}|{action_str}|{step_reward:.4f}|{step_cumulative:.4f}", flush=True)
+            print(f"[STEP] {step}|{action_str}|{step_reward:.4f}|{step_cumulative:.4f}", flush=True)
 
         # Grade and [END] output
         grade = env.grade()
