@@ -70,7 +70,7 @@ tasks:
 
 grading:
   deterministic: true
-  score_range: [0.0001, 0.9999]
+  score_range: [0.01, 0.99]
   components:
     root_cause_identification: 0.25
     remediation_correctness: 0.25

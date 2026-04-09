@@ -25,11 +25,17 @@ from env import IncidentCommanderEnv
 load_dotenv()
 
 
+def debug_log(message: str) -> None:
+    """Debug logging gated behind INFERENCE_DEBUG=1."""
+    if os.environ.get("INFERENCE_DEBUG") == "1":
+        print(message, file=sys.stderr, flush=True)
+
+
 def get_env_var(name: str, required: bool = True) -> Optional[str]:
     """Get environment variable."""
     val = os.environ.get(name)
     if required and not val:
-        print(f"ERROR: {name} environment variable required", file=sys.stderr)
+        debug_log(f"ERROR: {name} environment variable required")
         sys.exit(1)
     return val
 
@@ -45,7 +51,7 @@ def create_client(force_offline: bool = False) -> Optional[Any]:
     from openai import OpenAI
 
     if force_offline:
-        print("Offline mode enabled, skipping online LLM calls", file=sys.stderr)
+        debug_log("Offline mode enabled, skipping online LLM calls")
         return None
 
     api_base = os.environ.get("API_BASE_URL")
@@ -54,27 +60,27 @@ def create_client(force_offline: bool = False) -> Optional[Any]:
     # Hackathon validator path: must use injected proxy credentials.
     if api_base or api_key:
         if not (api_base and api_key):
-            print("API_BASE_URL/API_KEY incomplete; running in offline fallback mode", file=sys.stderr)
+            debug_log("API_BASE_URL/API_KEY incomplete; running in offline fallback mode")
             return None
         try:
-            print("Using injected API_BASE_URL/API_KEY proxy", file=sys.stderr)
+            debug_log("Using injected API_BASE_URL/API_KEY proxy")
             return OpenAI(base_url=api_base, api_key=api_key, max_retries=0, timeout=10.0)
         except Exception as e:
-            print(f"Proxy client init error: {e}; running in offline fallback mode", file=sys.stderr)
+            debug_log(f"Proxy client init error: {e}; running in offline fallback mode")
             return None
 
     # Local development path.
     token = get_env_var("HF_TOKEN", required=False)
     if not token:
-        print("HF_TOKEN not set; running in offline fallback mode", file=sys.stderr)
+        debug_log("HF_TOKEN not set; running in offline fallback mode")
         return None
 
     try:
         hf_base = "https://router.huggingface.co/v1"
-        print("Using local HF router credentials", file=sys.stderr)
+        debug_log("Using local HF router credentials")
         return OpenAI(base_url=hf_base, api_key=token, max_retries=0, timeout=10.0)
     except Exception as e:
-        print(f"Client init error: {e}; running in offline fallback mode", file=sys.stderr)
+        debug_log(f"Client init error: {e}; running in offline fallback mode")
         return None
 
 
@@ -209,18 +215,18 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
                     llm_output = response.choices[0].message.content
                     action = parse_action(llm_output)
                 except Exception as e:
-                    print(f"LLM error: {e}", file=sys.stderr)
+                    debug_log(f"LLM error: {e}")
                     action = None
 
             if action is None:
                 # Fallback action
                 action = {"action_type": "query_logs", "target_service": "db"}
-                print("Parse failed, using fallback", file=sys.stderr)
+                debug_log("Parse failed, using fallback")
 
             try:
                 result = env.step(action)
             except ValueError as e:
-                print(f"Invalid action: {e}", file=sys.stderr)
+                debug_log(f"Invalid action: {e}")
                 action = {"action_type": "query_logs", "target_service": "db"}
                 result = env.step(action)
 
@@ -230,15 +236,16 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
 
             # [STEP] output
             action_str = f"{action.get('action_type')}({action.get('target_service', '')})"
+            progress = strict_open(step / max_steps) if max_steps > 0 else 0.05
             step_reward = strict_open(float(reward["value"]))
             step_cumulative = strict_open(float(reward["cumulative"]))
-            print(f"[STEP] {step}|{action_str}|{step_reward:.4f}|{step_cumulative:.4f}", flush=True)
+            print(f"[STEP] {progress:.4f}|{action_str}|{step_reward:.4f}|{step_cumulative:.4f}", flush=True)
 
         # Grade and [END] output
         grade = env.grade()
         score = strict_open(float(grade.get("score", score)))
     except Exception as e:
-        print(f"Episode error on {task_id}: {e}", file=sys.stderr)
+        debug_log(f"Episode error on {task_id}: {e}")
 
     print(f"[END] {score:.4f}", flush=True)
     return {"score": score}
@@ -266,8 +273,6 @@ def main():
     client = create_client(force_offline=args.offline)
     env = IncidentCommanderEnv(seed=42)
     
-    print(f"Using model: {model}", file=sys.stderr)
-    
     all_tasks = ["easy_single_failure", "medium_cascade", "hard_multi_root"]
     tasks = [args.task] if args.task and not args.all_tasks else all_tasks
     
@@ -275,10 +280,6 @@ def main():
     for task in tasks:
         grade = run_episode(env, client, model, task, args.max_steps)
         results.append({"task": task, "score": grade["score"]})
-    
-    if len(results) > 1:
-        avg = sum(r["score"] for r in results) / len(results)
-        print(f"Average: {avg:.4f}", file=sys.stderr)
 
 
 if __name__ == "__main__":
