@@ -64,7 +64,7 @@ def create_client(force_offline: bool = False) -> Optional[Any]:
             return None
         try:
             debug_log("Using injected API_BASE_URL/API_KEY proxy")
-            return OpenAI(base_url=api_base, api_key=api_key, max_retries=0, timeout=10.0)
+            return OpenAI(base_url=api_base, api_key=api_key, max_retries=0, timeout=3.0)
         except Exception as e:
             debug_log(f"Proxy client init error: {e}; running in offline fallback mode")
             return None
@@ -78,7 +78,7 @@ def create_client(force_offline: bool = False) -> Optional[Any]:
     try:
         hf_base = "https://router.huggingface.co/v1"
         debug_log("Using local HF router credentials")
-        return OpenAI(base_url=hf_base, api_key=token, max_retries=0, timeout=10.0)
+        return OpenAI(base_url=hf_base, api_key=token, max_retries=0, timeout=3.0)
     except Exception as e:
         debug_log(f"Client init error: {e}; running in offline fallback mode")
         return None
@@ -201,7 +201,8 @@ def run_episode(env: IncidentCommanderEnv, client, model: str, task_id: str, max
             obs_text = format_observation(obs)
             action = None
 
-            if client is not None:
+            # Keep runtime predictable: at most one online LLM call per episode.
+            if client is not None and step == 1:
                 try:
                     response = client.chat.completions.create(
                         model=model,
@@ -260,7 +261,7 @@ def main():
                        choices=["easy_single_failure", "medium_cascade", "hard_multi_root"],
                        help="Run a single task. If omitted, runs all tasks.")
     parser.add_argument("--model", default=None)
-    parser.add_argument("--max-steps", type=int, default=20)
+    parser.add_argument("--max-steps", type=int, default=2)
     parser.add_argument("--offline", action="store_true",
                        help="Disable online LLM calls and use deterministic fallback actions only.")
     parser.add_argument("--all-tasks", action="store_true",
